@@ -1,0 +1,30 @@
+name: Ghost Bot (Halka Arz Momentum)
+
+on:
+  schedule:
+    # 18:15 TRT = 15:15 UTC
+    - cron: '15 15 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install Dependencies
+      run: |
+        pip install pandas requests pytrends
+        
+    - name: Run Ghost Bot
+      env:
+        EMAIL_USER: ${{ secrets.EMAIL_USER }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      run: python ghost_bot.py
