@@ -18,6 +18,9 @@ jobs:
       with:
         python-version: '3.9'
         
+    - name: Install Dependencies
+      run: pip install requests
+
     - name: Run Deployment Check
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
