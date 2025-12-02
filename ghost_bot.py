@@ -34,26 +34,29 @@ def main():
     
     # 1. Fetch Data (Last 90 Days)
     try:
+        # Add random start delay to avoid synchronized patterns
+        import random
+        import time
+        start_delay = random.randint(5, 30)
+        print(f"Waiting {start_delay}s before starting to avoid detection...")
+        time.sleep(start_delay)
+
         print("Fetching Google Trends data...")
         
         # Configure retries for 429 errors
         session = requests.Session()
         retries = requests.adapters.Retry(
             total=5,
-            backoff_factor=1, # 1s, 2s, 4s, 8s, 16s
+            backoff_factor=1, 
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["GET", "POST"]
         )
         session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
         
         pytrends = TrendReq(hl='tr-TR', tz=180, requests_args={'verify': True}, timeout=(10,25))
-        # Monkey patch the session used by pytrends if possible, or just rely on internal retries if they exist.
-        # Actually TrendReq uses requests.get/post internally. 
-        # Better approach: TrendReq accepts 'requests_args' but not a session directly in all versions.
-        # However, we can try to be robust.
         
-        # Let's implement a manual retry loop for the high level action
-        max_retries = 3
+        # Aggressive Retry Loop
+        max_retries = 10
         df = pd.DataFrame()
         
         for attempt in range(max_retries):
@@ -66,8 +69,10 @@ def main():
             except Exception as e:
                 print(f"Attempt {attempt+1} failed: {e}")
                 if attempt < max_retries - 1:
-                    import time
-                    time.sleep(2 ** (attempt + 1)) # Exponential backoff
+                    # Randomized Exponential Backoff: 2^n + random jitter
+                    sleep_time = (2 ** (attempt + 1)) + random.randint(1, 10)
+                    print(f"Sleeping {sleep_time}s...")
+                    time.sleep(sleep_time) 
                 else:
                     raise e
 
