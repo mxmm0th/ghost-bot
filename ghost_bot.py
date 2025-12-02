@@ -4,37 +4,30 @@ import pandas as pd
 import requests
 from pytrends.request import TrendReq
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
-def send_email_alert(subject, body):
-    sender_email = os.environ.get("EMAIL_USER")
-    sender_password = os.environ.get("EMAIL_PASSWORD")
-    receiver_email = "vojerkan@gmail.com"
+def send_telegram_alert(message):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
-    if not sender_email or not sender_password:
-        print("Error: Email credentials not found in environment variables.")
+    if not token or not chat_id:
+        print("Error: Telegram credentials not found in environment variables.")
         return
         
-    msg = MIMEMultipart()
-    msg['From'] = sender_email
-    msg['To'] = receiver_email
-    msg['Subject'] = subject
-    
-    msg.attach(MIMEText(body, 'plain'))
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
     
     try:
-        # Connect to Gmail SMTP
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        text = msg.as_string()
-        server.sendmail(sender_email, receiver_email, text)
-        server.quit()
-        print(f"Email alert sent to {receiver_email}")
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            print("Telegram alert sent successfully.")
+        else:
+            print(f"Error sending Telegram alert: {response.text}")
     except Exception as e:
-        print(f"Error sending email: {e}")
+        print(f"Error sending Telegram alert: {e}")
 
 def main():
     print("--- GHOST BOT: STARTED ---")
@@ -42,12 +35,42 @@ def main():
     # 1. Fetch Data (Last 90 Days)
     try:
         print("Fetching Google Trends data...")
-        pytrends = TrendReq(hl='tr-TR', tz=180)
-        kw_list = ["Halka Arz"]
-        # 'today 3-m' fetches last 3 months
-        pytrends.build_payload(kw_list, cat=0, timeframe='today 3-m', geo='TR', gprop='')
-        df = pytrends.interest_over_time()
         
+        # Configure retries for 429 errors
+        session = requests.Session()
+        retries = requests.adapters.Retry(
+            total=5,
+            backoff_factor=1, # 1s, 2s, 4s, 8s, 16s
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"]
+        )
+        session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
+        
+        pytrends = TrendReq(hl='tr-TR', tz=180, requests_args={'verify': True}, timeout=(10,25))
+        # Monkey patch the session used by pytrends if possible, or just rely on internal retries if they exist.
+        # Actually TrendReq uses requests.get/post internally. 
+        # Better approach: TrendReq accepts 'requests_args' but not a session directly in all versions.
+        # However, we can try to be robust.
+        
+        # Let's implement a manual retry loop for the high level action
+        max_retries = 3
+        df = pd.DataFrame()
+        
+        for attempt in range(max_retries):
+            try:
+                kw_list = ["Halka Arz"]
+                pytrends.build_payload(kw_list, cat=0, timeframe='today 3-m', geo='TR', gprop='')
+                df = pytrends.interest_over_time()
+                if not df.empty:
+                    break
+            except Exception as e:
+                print(f"Attempt {attempt+1} failed: {e}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(2 ** (attempt + 1)) # Exponential backoff
+                else:
+                    raise e
+
         if df.empty:
             print("No data found.")
             return
@@ -90,24 +113,23 @@ def main():
     THRESHOLD = 1.5
     
     if z_score > THRESHOLD:
-        subject = "🚨 ALARM: BIST 30 Momentum Sinyali"
-        body = f"""
-        GHOST BOT REPORT
-        ----------------
-        Sinyal: MOMENTUM LONG (Halka Arz İlgisi)
-        
-        Z-Score: {z_score:.2f} (Eşik: {THRESHOLD})
-        Güncel Değer: {latest_val}
-        
-        ACTION:
-        -> BUY BIST 30
-        -> HOLD: 3 Gün
-        
-        Bu otomatik bir mesajdır.
+        message = f"""
+*👻 GHOST BOT REPORT*
+----------------
+*Sinyal:* MOMENTUM LONG (Halka Arz İlgisi)
+
+*Z-Score:* {z_score:.2f} (Eşik: {THRESHOLD})
+*Güncel Değer:* {latest_val}
+
+*ACTION:*
+-> BUY BIST 30
+-> HOLD: 3 Gün
+
+_Bu otomatik bir mesajdır._
         """
         
-        print("Signal Detected! Sending Email Alert...")
-        send_email_alert(subject, body)
+        print("Signal Detected! Sending Telegram Alert...")
+        send_telegram_alert(message)
     else:
         print("No Signal. Z-Score is below threshold.")
 

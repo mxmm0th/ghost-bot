@@ -1,13 +1,13 @@
-name: Ghost Bot (Halka Arz Momentum)
+name: Midnight Hunter (Scalping Bot)
 
 on:
   schedule:
-    # 18:15 TRT = 15:15 UTC
-    - cron: '15 15 * * *'
-  workflow_dispatch: # Allow manual trigger
+    # 09:50 TRT = 06:50 UTC
+    - cron: '50 06 * * *'
+  workflow_dispatch:
 
 jobs:
-  run-bot:
+  run-hunter:
     runs-on: ubuntu-latest
     
     steps:
@@ -21,10 +21,10 @@ jobs:
         
     - name: Install Dependencies
       run: |
-        pip install pandas requests pytrends
+        pip install pandas numpy requests pytrends yfinance
         
-    - name: Run Ghost Bot
+    - name: Run Midnight Hunter
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: python ghost_bot.py
+      run: python midnight_bot.py
