@@ -118,25 +118,30 @@ def main():
     THRESHOLD = 1.5
     
     if z_score > THRESHOLD:
-        message = f"""
-*👻 GHOST BOT REPORT*
-----------------
-*Sinyal:* MOMENTUM LONG (Halka Arz İlgisi)
+        status = "🚀 MOMENTUM LONG"
+        action_text = "-> BUY BIST 30\n-> HOLD: 3 Gün"
+    else:
+        status = "😐 NEUTRAL / WAIT"
+        action_text = "-> NO ACTION REQUIRED"
 
+    message = f"""
+*👻 GHOST BOT DAILY REPORT*
+----------------
+*Sinyal:* {status}
+
+*İstatistikler:*
 *Z-Score:* {z_score:.2f} (Eşik: {THRESHOLD})
-*Güncel Değer:* {latest_val}
+*Güncel İlgi:* {latest_val}
+*30 Günlük Ort:* {latest_mean:.2f}
 
 *ACTION:*
--> BUY BIST 30
--> HOLD: 3 Gün
+{action_text}
 
 _Bu otomatik bir mesajdır._
-        """
-        
-        print("Signal Detected! Sending Telegram Alert...")
-        send_telegram_alert(message)
-    else:
-        print("No Signal. Z-Score is below threshold.")
+    """
+    
+    print("Sending Daily Telegram Report...")
+    send_telegram_alert(message)
 
 if __name__ == "__main__":
     main()
