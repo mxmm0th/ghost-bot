@@ -219,7 +219,7 @@ def main():
         
     print(f"DECISION: {action} ({reason})")
     
-    # 5. Alert
+    # 5. Alert - ALWAYS send report, even if action is WAIT
     if action != "WAIT":
         message = f"""
 *🦅 MIDNIGHT HUNTER: {action} SIGNAL (T+1)*
@@ -242,7 +242,23 @@ _Good hunting._
         """
         send_telegram_alert(message)
     else:
-        print("No signal generated.")
+        # Send daily report even when no action signal
+        message = f"""
+*📊 MIDNIGHT HUNTER: Daily Report*
+----------------------
+*Date:* {today}
+*Status:* No Signal (Market Normal)
+
+*Stats:*
+- Premium: {current_prem*100:.4f}%
+- Rolling Mean: {current_mean*100:.4f}%
+- Z-Score: {z_score:.2f}
+- Threshold: ±{Z_THRESHOLD}
+
+_Monitoring continues..._
+        """
+        send_telegram_alert(message)
+        print("Daily report sent (no action signal).")
 
 if __name__ == "__main__":
     main()
